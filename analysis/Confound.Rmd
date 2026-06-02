@@ -1,0 +1,123 @@
+---
+title: "Confound"
+output: html_document
+---
+
+```{r pull_clinch}
+
+clinch_games <- dbGetQuery(con, "
+  SELECT
+    tg.team,
+    tg.season,
+    s.season_label,
+    tg.game_date,
+    tg.points,
+    tc.clinch_date,
+    tc.seed,
+    tc.final_points
+  FROM team_games tg
+  JOIN team_clinch tc
+    ON tc.team = tg.team AND tc.season = tg.season
+  JOIN season_structure s
+    ON s.season = tg.season
+  WHERE tc.made_playoffs
+")
+
+nrow(clinch_games)   # expect 48 × 82 = 3936
+```
+
+```{r clinch_summary}
+
+clinch_summary <- clinch_games |>
+  mutate(window = if_else(game_date <= clinch_date, "pre", "post")) |>
+  group_by(team, season, season_label, seed, final_points, window) |>
+  summarise(
+    points_pct = sum(points) / (2 * n()),
+    games      = n(),
+    .groups    = "drop"
+  )
+
+clinch_wide <- clinch_summary |>
+  pivot_wider(names_from = window, values_from = c(points_pct, games)) |>
+  mutate(drop = points_pct_post - points_pct_pre)
+
+clinch_wide |> arrange(games_post) |> head(5)   # check shortest post windows
+```
+
+```{r plot_clinch, fig.width=10, fig.height=4.5}
+
+ggplot(clinch_wide, aes(x = points_pct_pre, y = drop)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_point(aes(size = games_post), alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE) +
+  facet_wrap(~ season_label) +
+  scale_size_continuous(range = c(1.5, 5), name = "Post-clinch\ngames") +
+  labs(
+    title    = "Playoff teams ease off after clinching their seed",
+    subtitle = "Negative slope = stronger pre-clinch teams drop more (load management).",
+    x        = "Pre-clinch points %",
+    y        = "Drop = post − pre points %"
+  ) +
+  theme_minimal()
+```
+
+```{r fit_clinch}
+
+fit_clinch    <- lm(drop ~ points_pct_pre, data = clinch_wide)
+fit_clinch_w  <- lm(drop ~ points_pct_pre, data = clinch_wide, weights = games_post)
+summary(fit_clinch)
+summary(fit_clinch_w)
+```
+
+```{r magnitude}
+
+b0 <- coef(fit_clinch_w)["(Intercept)"]
+b1 <- coef(fit_clinch_w)["points_pct_pre"]
+
+# Predicted drop for two hypothetical teams
+contender_pre <- 0.700   # ~115-pt President's Trophy pace
+bubble_pre    <- 0.550   # ~90-pt wild card
+
+contender_drop <- b0 + b1 * contender_pre
+bubble_drop    <- b0 + b1 * bubble_pre
+
+cat(sprintf(
+  "Contender (0.700 pre-clinch pts%%): predicted drop = %.3f pts%%\n", contender_drop))
+cat(sprintf(
+  "Bubble    (0.550 pre-clinch pts%%): predicted drop = %.3f pts%%\n", bubble_drop))
+
+# Convert drop in pts% over an N-game post-clinch window to points "given back"
+typical_post_games <- median(clinch_wide$games_post, na.rm = TRUE)
+
+contender_points_lost <- -contender_drop * 2 * typical_post_games
+bubble_points_lost    <- -bubble_drop    * 2 * typical_post_games
+
+cat(sprintf(
+  "Over %.0f post-clinch games, contender gives back ~%.1f standings points vs maintaining pace.\n",
+  typical_post_games, contender_points_lost))
+cat(sprintf(
+  "Bubble team gives back ~%.1f standings points.\n", bubble_points_lost))
+```
+
+
+**Biggest Dropped Teams**
+
+```{r leaderboard}
+
+clinch_wide |>
+  filter(!is.na(drop), games_post >= 5) |>     # filter out unreliable short windows
+  arrange(drop) |>
+  select(season_label, team, seed, points_pct_pre, points_pct_post, games_post, drop) |>
+  head(10)
+```
+
+**Maintained Pace**
+```{r anti_leaderboard}
+
+clinch_wide |>
+  filter(!is.na(drop), games_post >= 5) |>
+  arrange(desc(drop)) |>
+  select(season_label, team, seed, points_pct_pre, points_pct_post, games_post, drop) |>
+  head(10)
+```
+

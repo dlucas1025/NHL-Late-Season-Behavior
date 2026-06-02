@@ -1,0 +1,136 @@
+---
+title: "main2"
+output: html_document
+---
+
+**Initializing libraries**
+
+```{r}
+library(httr2)
+library(purrr)
+library(dplyr)
+library(readr)
+```
+
+**One Instance API Data Call and Collection**
+
+```{r}
+url <- "https://api-web.nhle.com/v1/club-schedule-season/BUF/20232024"
+
+req <- request(url)
+req
+
+resp <- req_perform(req)
+resp
+
+body <- resp_body_json(resp)
+class(body)
+names(body)
+```
+
+**Data Received Checks**
+
+```{r}
+#length(body$games)
+#str(body$games[[1]], max.level = 2)
+
+game_id = body$games[[1]]$id
+game_type = body$games[[1]]$gameType
+game_date = body$games[[1]]$gameDate
+home_team_abb = body$games[[1]]$homeTeam$abbrev
+home_team_score = body$games[[1]]$homeTeam$score
+away_team_abb = body$games[[1]]$awayTeam$abbrev
+away_team_score = body$games[[1]]$awayTeam$score
+how_end = body$games[[1]]$gameOutcome$lastPeriodType
+
+
+#length(body$games)
+#sapply(body$games, function(g) g$gameType) |> table()
+
+```
+
+**Data Call Generalization and Collection**
+
+```{r}
+fetch_team_season <- function(team, season){
+  url <- paste0("https://api-web.nhle.com/v1/club-schedule-season/", team, "/", season)
+  resp <- request(url) |>
+    req_throttle(rate = 5) |>
+    req_perform()
+  resp_body_json(resp)$games
+}
+
+#test <- fetch_team_season("BUF", "20232024")
+#length(test)   # 89, same as before
+
+teams <- c("ANA","ARI","BOS","BUF","CGY","CAR","CHI","COL","CBJ","DAL",
+           "DET","EDM","FLA","LAK","MIN","MTL","NSH","NJD","NYI","NYR",
+           "OTT","PHI","PIT","SJS","SEA","STL","TBL","TOR","VAN","VGK",
+           "WSH","WPG")
+
+seasons <- c("20212022", "20222023", "20232024")
+
+pairs <- expand.grid(team = teams, season = seasons,
+                     stringsAsFactors = FALSE)
+
+#nrow(pairs)   # 96
+#head(pairs)
+
+raw <- map2(pairs$team, pairs$season, fetch_team_season, .progress = TRUE)
+length(raw)   # 96
+
+all_games <- list_flatten(raw)
+length(all_games)   # ~8500-ish (96 team-seasons × ~89 games each)
+
+```
+
+**Data Received Check But With A Function**
+
+```{r}
+game_to_row <- function(g) {
+  tibble(
+    game_id     = g$id,
+    season      = g$season,
+    game_type   = g$gameType,
+    game_date   = as.Date(g$gameDate),
+    home_team   = g$homeTeam$abbrev,
+    home_score  = g$homeTeam$score,
+    away_team   = g$awayTeam$abbrev,
+    away_score  = g$awayTeam$score,
+    last_period = g$gameOutcome$lastPeriodType
+  )
+}
+```
+
+```{r}
+game_to_row(all_games[[1]])
+
+games_raw <- map(all_games, game_to_row) |> list_rbind()
+nrow(games_raw)
+```
+
+**Data Wrangling**
+
+```{r}
+games_clean <- games_raw |>
+  filter(game_type == 2) |>
+  distinct(game_id, .keep_all = TRUE) |>
+  select(-game_type)
+
+nrow(games_clean)   # should be 3936 (1312 per season × 3 seasons)
+```
+
+**Save and Push**
+
+```{r}
+write_csv(games_clean, "data/games_raw.csv")
+```
+
+Safety Checks
+
+```{r}
+games_clean |> count(season)                # 1312 per season
+games_clean |> count(last_period)           # REG largest, OT and SO smaller
+range(games_clean$game_date)                # earliest 2021-10-xx, latest 2024-04-xx
+games_clean |> filter(home_score == away_score) |> nrow()   # 0 — NHL has no ties
+```

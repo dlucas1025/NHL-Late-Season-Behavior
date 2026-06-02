@@ -1,0 +1,281 @@
+---
+title: "Draft & Tank, Vertical Slice"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+```
+
+```{r libs}
+
+library(DBI)
+library(RPostgres)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(readr)
+library(here)
+```
+
+```{r load}
+
+con <- dbConnect(RPostgres::Postgres(), dbname = "nhl", host = "localhost")
+
+games <- read_csv(here("data", "games_raw.csv"))
+
+dbExecute(con, "TRUNCATE games")
+dbWriteTable(con, "games", games, append = TRUE, row.names = FALSE)
+
+dbGetQuery(con, "SELECT season, COUNT(*) AS n FROM games GROUP BY season ORDER BY season")
+```
+
+```{r pull}
+
+team_games <- dbGetQuery(con, "
+  SELECT
+    tg.team,
+    tg.season,
+    s.season_label,
+    tg.game_date,
+    tg.points,
+    CASE
+      WHEN tg.game_date <= s.trade_deadline THEN 'pre'
+      ELSE 'post'
+    END AS window
+  FROM team_games tg
+  JOIN season_structure s ON s.season = tg.season
+")
+
+nrow(team_games)    # 7872
+head(team_games)
+```
+
+```{r summary}
+
+team_summary <- team_games |>
+  group_by(team, season, season_label, window) |>
+  summarise(
+    points_pct = sum(points) / (2 * n()),
+    games      = n(),
+    .groups    = "drop"
+  )
+
+head(team_summary)
+```
+
+```{r wide}
+
+wide <- team_summary |>
+  select(team, season, season_label, window, points_pct) |>
+  pivot_wider(names_from = window, values_from = points_pct) |>
+  mutate(drop = post - pre)
+
+
+head(wide)
+nrow(wide)
+```
+
+```{r plot, fig.width=10, fig.height=4}
+
+ggplot(wide, aes(x = pre, y = drop)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_point(alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE) +
+  facet_wrap(~ season_label) +
+  labs(
+    x = "Pre-deadline points %",
+    y = "Drop = post − pre points %",
+    title    = "Does late-season performance drop more for bad teams?",
+    subtitle = "One dot per team-season. Positive slope = bad teams drop more (tank signal)."
+  ) +
+  theme_minimal()
+```
+
+```{r fit}
+
+fit <- lm(drop ~ pre, data = wide)
+summary(fit)
+```
+
+**Close DB Connection**
+
+```{r close}
+
+#dbDisconnect(con)
+
+```
+
+**NEW SECTION: Diagnostics**
+
+```{r per-season-fits}
+
+library(broom)
+
+per_season <- wide |>
+  group_by(season_label) |>
+  group_modify(~ tidy(lm(drop ~ pre, data = .x))) |>
+  filter(term == "pre") |>
+  select(season_label, estimate, std.error, p.value)
+
+per_season
+```
+
+```{r playoff-split}
+
+# Pull total points per team-season from the database
+totals <- dbGetQuery(con, "
+  SELECT team, season, SUM(points) AS total_pts
+  FROM team_games
+  GROUP BY team, season
+")
+
+# Rank within season, flag top 16 as 'made playoffs'
+playoff_lookup <- totals |>
+  group_by(season) |>
+  mutate(made_playoffs = rank(-total_pts) <= 16) |>
+  ungroup() |>
+  select(team, season, made_playoffs)
+
+# Merge into the wide table
+wide2 <- wide |>
+  left_join(playoff_lookup, by = c("team", "season"))
+
+# Plot colored by playoff status
+ggplot(wide2, aes(x = pre, y = drop, color = made_playoffs)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_point(alpha = 0.75) +
+  geom_smooth(method = "lm", se = TRUE) +
+  facet_wrap(~ season_label) +
+  scale_color_manual(
+    values = c(`TRUE` = "#1b9e77", `FALSE` = "#d95f02"),
+    labels = c(`TRUE` = "Made playoffs", `FALSE` = "Missed")
+  ) +
+  labs(
+    x = "Pre-deadline points %",
+    y = "Drop = post − pre points %",
+    title = "Same data, split by playoff outcome",
+    color = NULL
+  ) +
+  theme_minimal()
+```
+
+```{r playoff-split-fits}
+
+wide2 |>
+  group_by(made_playoffs) |>
+  group_modify(~ tidy(lm(drop ~ pre, data = .x))) |>
+  filter(term == "pre")
+```
+
+*The above is very telling \^*
+
+```{r extremes}
+
+# 10 biggest drops — late-season crashers
+wide2 |>
+  arrange(drop) |>
+  head(10) |>
+  select(team, season_label, pre, post, drop, made_playoffs)
+
+# 10 biggest gains — late-season risers
+wide2 |>
+  arrange(desc(drop)) |>
+  head(10) |>
+  select(team, season_label, pre, post, drop, made_playoffs)
+```
+
+**Final Examination of Tank Incentives**
+
+```{r pull_elim}
+
+elim_games <- dbGetQuery(con, "
+  SELECT
+    tg.team,
+    tg.season,
+    s.season_label,
+    tg.game_date,
+    tg.points,
+    te.elimination_date,
+    te.seed,
+    te.final_points
+  FROM team_games tg
+  JOIN team_elimination te
+    ON te.team = tg.team AND te.season = tg.season
+  JOIN season_structure s
+    ON s.season = tg.season
+  WHERE te.missed_playoffs
+")
+
+nrow(elim_games)   # expect 48 teams × 82 games = 3936
+```
+
+```{r summary_elim}
+
+elim_summary <- elim_games |>
+  mutate(window = if_else(game_date <= elimination_date, "pre", "post")) |>
+  group_by(team, season, season_label, seed, final_points, window) |>
+  summarise(
+    points_pct = sum(points) / (2 * n()),
+    games      = n(),
+    .groups    = "drop"
+  )
+
+head(elim_summary)
+```
+
+```{r wide_elim}
+
+library(tidyr)
+
+elim_wide <- elim_summary |>
+  pivot_wider(
+    names_from  = window,
+    values_from = c(points_pct, games)
+  ) |>
+  mutate(drop = points_pct_post - points_pct_pre)
+
+elim_wide |> arrange(games_post) |> head(10)
+```
+
+```{r diag_windows}
+
+elim_wide |>
+  summarise(
+    n_teams         = n(),
+    teams_no_post   = sum(is.na(games_post)),
+    median_post     = median(games_post, na.rm = TRUE),
+    min_post        = min(games_post,    na.rm = TRUE),
+    max_post        = max(games_post,    na.rm = TRUE),
+    median_pre      = median(games_pre)
+  )
+
+```
+
+```{r plot_elim, fig.width=10, fig.height=4.5}
+
+ggplot(elim_wide, aes(x = points_pct_pre, y = drop)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "gray60") +
+  geom_point(aes(size = games_post), alpha = 0.7) +
+  geom_smooth(method = "lm", se = TRUE) +
+  facet_wrap(~ season_label) +
+  scale_size_continuous(range = c(1.5, 5), name = "Post-elim\ngames") +
+  labs(
+    title    = "Pre vs post mathematical elimination — non-playoff teams only",
+    subtitle = "Positive slope = worse teams drop more after elimination (tank signal). Dot size = post-elim reliability.",
+    x        = "Pre-elimination points %",
+    y        = "Drop = post − pre points %"
+  ) +
+  theme_minimal()
+```
+
+```{r fit_elim}
+
+fit_elim <- lm(drop ~ points_pct_pre, data = elim_wide)
+summary(fit_elim)
+
+fit_elim_w <- lm(drop ~ points_pct_pre, data = elim_wide,
+                 weights = games_post)
+summary(fit_elim_w)
+```
