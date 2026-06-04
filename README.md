@@ -1,4 +1,4 @@
-# Draft & Tank: NHL Late-Season Behavior Analysis
+<img width="536" height="292" alt="image" src="https://github.com/user-attachments/assets/ca81c7c6-385b-4665-ac39-5a9cc7bee135" /># Draft & Tank: NHL Late-Season Behavior Analysis
 
 Across three NHL seasons, I tested whether non-playoff teams systematically tank for draft-lottery position. I didn't find it. But I did find and quantify the opposite-direction pattern in playoff teams: a clear, statistically significant load-management effect that scales with team quality.
 
@@ -38,6 +38,9 @@ dashboard/
 ├── NHL_Late_Season_Behavior.pbix ← Power BI dashboard
 └── screenshots/ ← page captures
 
+<img width="525" height="236" alt="image" src="https://github.com/user-attachments/assets/afe3c174-583c-4cbb-b7ad-ae9f3de6ccba" />
+
+
 ## How to reproduce
 1. Install dependencies:
    - PostgreSQL 17+ (Postgres.app on macOS works)
@@ -54,22 +57,22 @@ Knit data_pipeline/02_load_postgres.Rmd to load the CSV into the games table.
 
 Knit analysis/04_slice.Rmd to reproduce every figure and regression in this project.
 
-**Limitations**
+## Limitations:
 Sample size: 3 seasons is too few for high statistical power. A null slope with SE ≈ 0.24 cannot rule out moderate tanking; it can only say we didn't find it at this scale.
 
 Playoff classification: top-16-by-points approximates the actual playoff field, which uses a division + wild-card system. Misclassifies ~1–2 teams per season.
 
 Quality baseline contamination: pre-deadline points% as the quality baseline is partially contaminated by any tanking that began before the deadline. A frozen pre-deadline xG-differential would be better and more credible.
 
-**What I'd do next**
+## What I'd do next
 
 Expand to 10+ seasons (2014-15 onward, post lottery reform) for ~320 team-seasons.
 Add roster-quality controls: man-games-lost-to-scratch for top-6 forwards, starting-goalie xG-against. I understand that tanking is a front-office act (trades, scratches, AHL call-ups), not an on-ice one.
 
 I will use xG-differential as a frozen quality baseline instead of points%. Refine playoff classification to match the actual division + wild-card structure.
 
-**Tech stack**
+## Tech stack
 PostgreSQL 18 · R 4.6 (httr2, dplyr, ggplot2, RPostgres, DBI) · Power BI Desktop · RMarkdown
 
-**Author**
+## Author
 Lucas Duan - lucas.duan@mail.utoronto.ca
