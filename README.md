@@ -1,6 +1,6 @@
 # Draft & Tank: NHL Late-Season Behavior Analysis
 
-Across three NHL seasons, I tested whether non-playoff teams systematically tank for draft-lottery position. I didn't find it. But I did find and quantify the opposite-direction pattern in playoff teams: a clear, statistically significant load-management effect that scales with team quality.
+> Across three NHL seasons, I tested whether non-playoff teams systematically tank for draft-lottery position. I didn't find it. But I did find and quantify the opposite-direction pattern in playoff teams: a clear, statistically significant load-management effect that scales with team quality.
 
 ## TL;DR
 
