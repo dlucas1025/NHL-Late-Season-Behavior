@@ -1,6 +1,6 @@
 Hello!
 
-This is Lucas. I hope you read this before opening the files and getting into the nitty-gritty.
+This is Lucas. Please read this before opening the files and getting into the nitty-gritty.
 
 A quick rundown:
 
