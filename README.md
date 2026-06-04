@@ -26,18 +26,6 @@ Load management appears to be a real thing and quantified. Tanking is, apparentl
 - **Visualization**: Power BI Desktop, 3-page interactive dashboard.
 
 ## Repository structure (format and structure is thanks to Claude Code absolute beaty)
-data_pipeline/
-├── 01_fetch_games.Rmd ← pulls NHL API into CSV
-├── 02_load_postgres.Rmd ← loads CSV into Postgres
-└── sql/
-├── schema.sql ← base tables
-└── views.sql ← derived views with window functions
-analysis/
-└── 04_slice.Rmd ← full analysis: scatters, regressions, leaderboards
-dashboard/
-├── NHL_Late_Season_Behavior.pbix ← Power BI dashboard
-└── screenshots/ ← page captures
-
 <img width="525" height="236" alt="image" src="https://github.com/user-attachments/assets/afe3c174-583c-4cbb-b7ad-ae9f3de6ccba" />
 
 
