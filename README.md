@@ -10,7 +10,7 @@
 
 ## How I began
 
-Like normal hockey fan, (WPG jets best nhl team and its not even close), I assumed "tanking" was obvious; bad teams lose on purpose in March to boost draft lottery odds. So I built a database (NHL public API, 3 seasons, 3,900 regular-season games), tested it with two hypothesis, and braced for a juicy finding so I can bet some cash at the end of each season to win some guaranteed money. hehe
+Like a normal hockey fan, (WPG jets best nhl team and its not even close), I assumed "tanking" was obvious; bad teams lose on purpose in March to boost draft lottery odds. So I built a database (NHL public API, 3 seasons, 3,900 regular-season games), tested it with two hypothesis, and braced for a juicy finding so I can bet some cash at the end of each season to win some guaranteed money. hehe
 
 The finding wasn't juicy. It was null. Non-playoff teams showed no statistically detectable tank signal across either specification. Surprising and disappointing...
 
