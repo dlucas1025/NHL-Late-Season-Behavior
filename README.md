@@ -1,16 +1,16 @@
 # Draft & Tank: NHL Late-Season Behavior Analysis
 
-> Across three NHL seasons, I tested whether non-playoff teams systematically tank for draft-lottery position. I didn't find it. But I did find and quantify the opposite-direction pattern in playoff teams: a clear, statistically significant load-management effect that scales with team quality.
+> Across three NHL seasons, I tested whether non-playoff teams systematically tank for draft-lottery position. I unfortunately did not find a pattern. However, along the journey I did find and quantify the opposite-direction pattern in playoff teams: a clear, statistically significant load-management effect that scales with team quality.
 
 ## TL;DR
 
 - **Hypothesis tested**: NHL non-playoff teams with strong draft-lottery incentives underperform their pre-deadline pace late in the season.
-- **Result**: not detected. Two event-study designs (trade-deadline split, mathematical-elimination event) both produced slopes statistically indistinguishable from zero. n = 48 non-playoff team-seasons.
+- **Result**: Pattern does not exist. Two event-study designs (trade-deadline split, mathematical-elimination event) both produced slopes statistically indistinguishable from zero. n = 48 non-playoff team-seasons. (I guess no betting loophole)
 - **Unexpected finding**: playoff teams systematically ease off after the deadline, scaled by pre-deadline strength (β = −0.89, p = 0.0004, n = 48 playoff team-seasons).
 
 ## How I began
 
-Like every hockey fan (WPG jets best nhl team and its not even close), I assumed "tanking" was obvious; bad teams lose more in March to boost draft lottery odds. So I built a database (NHL public API, 3 seasons, 3,900 regular-season games), tested it two ways, and braced for a juicy finding so I can bet some cash at the end of each season to win some guaranteed money. hehe
+Like normal hockey fan, (WPG jets best nhl team and its not even close), I assumed "tanking" was obvious; bad teams lose on purpose in March to boost draft lottery odds. So I built a database (NHL public API, 3 seasons, 3,900 regular-season games), tested it with two hypothesis, and braced for a juicy finding so I can bet some cash at the end of each season to win some guaranteed money. hehe
 
 The finding wasn't juicy. It was null. Non-playoff teams showed no statistically detectable tank signal across either specification. Surprising and disappointing...
 
@@ -25,7 +25,7 @@ Load management appears to be a real thing and quantified. Tanking is, apparentl
 - **Analysis**: R / RMarkdown — `httr2` for ingestion, `dplyr` + `ggplot2` for analysis, OLS regression with weighted and unweighted fits.
 - **Visualization**: Power BI Desktop, 3-page interactive dashboard.
 
-## Repository structure (format and structure is thanks to Claude Code absolute beaty)
+## Repository structure (format and structure is thanks to Claude Code absolute beaty ill tell you that for free)
 <img width="525" height="236" alt="image" src="https://github.com/user-attachments/assets/afe3c174-583c-4cbb-b7ad-ae9f3de6ccba" />
 
 
@@ -55,7 +55,7 @@ Quality baseline contamination: pre-deadline points% as the quality baseline is 
 ## What I'd do next
 
 Expand to 10+ seasons (2014-15 onward, post lottery reform) for ~320 team-seasons.
-Add roster-quality controls: man-games-lost-to-scratch for top-6 forwards, starting-goalie xG-against. I understand that tanking is a front-office act (trades, scratches, AHL call-ups), not an on-ice one.
+Add roster-quality controls: man-games-lost-to-scratch for top-6 forwards, starting-goalie xG-against. I understand that tanking is a front-office act (trades, scratches, AHL call-ups), not an on-ice one. Hockey is very multi-faceted and there were many variables that I failed to consider.
 
 I will use xG-differential as a frozen quality baseline instead of points%. Refine playoff classification to match the actual division + wild-card structure.
 
